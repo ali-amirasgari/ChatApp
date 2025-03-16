@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat App Test Client</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        #messages { list-style-type: none; margin: 0; padding: 0; height: 300px; overflow-y: auto; border: 1px solid #eee; margin-bottom: 10px; padding: 10px; }
+        #message-form { display: flex; }
+        #message-input { flex-grow: 1; padding: 10px; }
+        button { padding: 10px 20px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Chat App Test Client</h1>
+    
+    <div id="connection-status">Disconnected</div>
+    
+    <div id="login-form">
+        <input type="text" id="username-input" placeholder="Enter your username">
+        <button onclick="joinChat()">Join Chat</button>
+    </div>
+    
+    <div id="chat-container" style="display: none;">
+        <h2>Messages</h2>
+        <ul id="messages"></ul>
+        
+        <form id="message-form" onsubmit="sendMessage(event)">
+            <input id="message-input" autocomplete="off" placeholder="Type a message...">
+            <button>Send</button>
+        </form>
+    </div>
+    
+    <script>
+        // Connect to the server - REPLACE WITH YOUR SERVER IP
+        const socket = io('http://172.20.8.93:5000', {
+            reconnectionAttempts: 5,
+            timeout: 10000,
+            transports: ['websocket', 'polling']
+        });
+        let username = '';
+        
+        // Connection status
+        socket.on('connect', () => {
+            document.getElementById('connection-status').textContent = 'Connected';
+            document.getElementById('connection-status').style.color = 'green';
+            console.log('Connected to server with ID:', socket.id);
+        });
+        
+        socket.on('connect_error', (error) => {
+            console.error('Connection error:', error);
+            document.getElementById('connection-status').textContent = 'Connection Error: ' + error.message;
+            document.getElementById('connection-status').style.color = 'red';
+        });
+        
+        socket.on('disconnect', () => {
+            document.getElementById('connection-status').textContent = 'Disconnected';
+            document.getElementById('connection-status').style.color = 'red';
+            console.log('Disconnected from server');
+        });
+        
+        // Join chat
+        function joinChat() {
+            username = document.getElementById('username-input').value.trim();
+            if (username) {
+                socket.emit('join', username);
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('chat-container').style.display = 'block';
+            }
+        }
+        
+        // Send message
+        function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            if (message) {
+                socket.emit('sendMessage', message);
+                input.value = '';
+            }
+        }
+        
+        // Receive initial data
+        socket.on('initialData', (data) => {
+            const messagesList = document.getElementById('messages');
+            
+            // Display existing messages
+            data.messages.forEach(msg => {
+                const li = document.createElement('li');
+                li.textContent = `${msg.user}: ${msg.text}`;
+                messagesList.appendChild(li);
+            });
+            
+            // Scroll to bottom
+            messagesList.scrollTop = messagesList.scrollHeight;
+        });
+        
+        // Receive new messages
+        socket.on('newMessage', (message) => {
+            const messagesList = document.getElementById('messages');
+            const li = document.createElement('li');
+            li.textContent = `${message.user}: ${message.text}`;
+            messagesList.appendChild(li);
+            
+            // Scroll to bottom
+            messagesList.scrollTop = messagesList.scrollHeight;
+        });
+        
+        // User joined
+        socket.on('userJoined', (user) => {
+            const messagesList = document.getElementById('messages');
+            const li = document.createElement('li');
+            li.textContent = `${user.username} joined the chat`;
+            li.style.color = 'green';
+            messagesList.appendChild(li);
+        });
+        
+        // User left
+        socket.on('userLeft', (user) => {
+            const messagesList = document.getElementById('messages');
+            const li = document.createElement('li');
+            li.textContent = `${user.username} left the chat`;
+            li.style.color = 'red';
+            messagesList.appendChild(li);
+        });
+    </script>
+</body>
+</html> 
